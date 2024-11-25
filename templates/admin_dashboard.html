@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2 class="text-center my-4">Admin Dashboard</h2>
+
+<div class="container">
+    <div class="row">
+
+        <!-- User Management -->
+        <div class="col-md-6 mb-4">
+            <h4 class="mb-3">Manage Users</h4>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.role }}</td>
+                                    <td>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="user_id" value="{{ user.id }}">
+                                            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Data Table -->
+        <div class="col-md-6 mb-4">
+            <h4 class="mb-3">All Health Data</h4>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <table class="table table-striped" id="patientTable">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Patient</th>
+                                <th>Age</th>
+                                <th>BMI</th>
+                                <th>Blood Group</th>
+                                <th>Height (cm)</th>
+                                <th>Cholesterol Level</th>
+                                <th>Blood Pressure</th>
+                                <th>Gender</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in health_data %}
+                                <tr id="patient-{{ data.patient_id }}" 
+                                    data-age="{{ data.age }}" 
+                                    data-bmi="{{ data.bmi }}" 
+                                    data-blood_group="{{ data.blood_group }}" 
+                                    data-height="{{ data.height }}" 
+                                    data-cholesterol="{{ data.cholesterol }}" 
+                                    data-blood_pressure="{{ data.blood_pressure }}" 
+                                    data-gender="{{ data.gender }}">
+                                    <td>{{ data.username }}</td>
+                                    <td>{{ data.age }}</td>
+                                    <td>{{ data.bmi }}</td>
+                                    <td>{{ data.blood_group }}</td>
+                                    <td>{{ data.height }}</td>
+                                    <td>{{ data.cholesterol }}</td>
+                                    <td>{{ data.blood_pressure }}</td>
+                                    <td>{{ data.gender }}</td>
+                                    <td>
+                                        <span class="badge" id="status-{{ data.patient_id }}">
+                                            <!-- Default status will be updated by JS -->
+                                            Loading...
+                                        </span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// After the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Fetch the health data as a JSON array from the server (using Jinja to insert JSON)
+    const healthData = [
+        {% for data in health_data %}
+        {
+            "patient_id": {{ data.patient_id }},
+            "bmi": {{ data.bmi }},
+            "age": {{ data.age }},
+            "blood_group": "{{ data.blood_group }}",
+            "height": {{ data.height }},
+            "cholesterol": {{ data.cholesterol }},
+            "blood_pressure": "{{ data.blood_pressure }}",
+            "gender": "{{ data.gender }}"
+        },
+        {% endfor %}
+    ];
+
+    // Loop through each patient's data and update the status dynamically
+    healthData.forEach(patient => {
+        // Get the patient row element and the status badge
+        const statusBadge = document.getElementById('status-' + patient.patient_id);
+
+        // Analyze and determine health status
+        const healthStatus = analyzePatientData(patient);
+        
+        // Update the status badge with the health status
+        statusBadge.classList.add('bg-info'); // You can adjust color as needed
+        statusBadge.textContent = healthStatus;
+    });
+});
+
+// Function to analyze health data for a specific patient
+function analyzePatientData(data) {
+    let results = [];
+    
+    // BMI Analysis
+    if (data.bmi < 18.5) { results.push("Underweight - Risk of Nutritional Deficiency"); }
+    else if (data.bmi >= 18.5 && data.bmi < 24.9) { results.push("Healthy Weight - Maintain a Balanced Diet"); }
+    else if (data.bmi >= 25 && data.bmi < 29.9) { results.push("Overweight - Consider Weight Management"); }
+    else if (data.bmi >= 30) { results.push("Obese - High Risk of Heart Disease"); }
+
+    // Cholesterol Analysis
+    if (data.cholesterol > 240) { results.push("High Cholesterol - Risk of Heart Disease"); }
+    else { results.push("Normal Cholesterol Level"); }
+
+    // Blood Pressure Analysis
+    const bloodPressure = data.blood_pressure.split('/');
+    if (bloodPressure.length === 2) {
+        const systolic = parseInt(bloodPressure[0]);
+        const diastolic = parseInt(bloodPressure[1]);
+        if (systolic >= 140 || diastolic >= 90) { results.push("High Blood Pressure - Hypertension Risk"); }
+        else if (systolic >= 120 && systolic < 140) { results.push("Prehypertension - Monitor Blood Pressure"); }
+        else { results.push("Normal Blood Pressure"); }
+    }
+
+    // Age Analysis
+    if (data.age > 60) { results.push("Elderly - Health Monitoring Recommended"); }
+    else if (data.age < 18) { results.push("Young Patient - Ensure Proper Nutritional Intake"); }
+
+    return results.join(", ");
+}
+</script>
+
+{% endblock %}

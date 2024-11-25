@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Doctor Dashboard</h2>
+
+    <div class="row">
+        <!-- Patient Data -->
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4>Patient Health Data</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped" id="patientTable">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Age</th>
+                                <th>BMI</th>
+                                <th>Blood Group</th>
+                                <th>Height (cm)</th>
+                                <th>Cholesterol Level</th>
+                                <th>Blood Pressure</th>
+                                <th>Gender</th>
+                                <th>Actions</th>
+                                <th>Health Status</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in health_data %}
+                                <tr id="patient-{{ data.patient_id }}" 
+                                    data-age="{{ data.age }}" 
+                                    data-bmi="{{ data.bmi }}" 
+                                    data-blood_group="{{ data.blood_group }}" 
+                                    data-height="{{ data.height }}" 
+                                    data-cholesterol="{{ data.cholesterol }}" 
+                                    data-blood_pressure="{{ data.blood_pressure }}" 
+                                    data-gender="{{ data.gender }}">
+                                    <td>{{ data.patient_id }}</td>
+                                    <td>{{ data.age }}</td>
+                                    <td>{{ data.bmi }}</td>
+                                    <td>{{ data.blood_group }}</td>
+                                    <td>{{ data.height }}</td>
+                                    <td>{{ data.cholesterol }}</td>
+                                    <td>{{ data.blood_pressure }}</td>
+                                    <td>{{ data.gender }}</td>
+                                    <td>
+                                        <form method="POST" action="/send_message" class="d-flex">
+                                            <input type="hidden" name="receiver_id" value="{{ data.patient_id }}">
+                                            <input type="text" class="form-control mb-2 me-2" name="content" placeholder="Message" required>
+                                            <button type="submit" class="btn btn-primary btn-sm">Send</button>
+                                        </form>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-info btn-sm" onclick="analyzePatient('{{ data.patient_id }}')">Analyze</button>
+                                        <span id="health-status-{{ data.patient_id }}" class="ml-3"></span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-danger btn-sm" onclick="deletePatient('{{ data.patient_id }}')">Delete</button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages from Patients -->
+        <div class="col-md-6 mt-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4>Messages from Patients</h4>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group" id="messageList">
+                        {% for message in messages %}
+                            <li class="list-group-item mb-3" id="message-{{ message.id }}">
+                                <strong>From:</strong> Patient {{ message.sender_id }}<br>
+                                <strong>Message:</strong> {{ message.content }}
+                                <button class="btn btn-danger btn-sm float-right" onclick="deleteMessage('{{ message.id }}')">Delete</button>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="container">
+    <h1>Disease Progression Simulation</h1>
+
+    <form id="simulationForm">
+        <label for="age">Age:</label>
+        <input type="number" id="age" required>
+
+        <label for="initial_infected">Initial Infected Population:</label>
+        <input type="number" id="initial_infected" required>
+
+        <label for="contact_rate">Contact Rate (β):</label>
+        <input type="number" step="0.01" id="contact_rate" required>
+
+        <label for="recovery_rate">Recovery Rate (γ):</label>
+        <input type="number" step="0.01" id="recovery_rate" required>
+
+        <label for="disease_duration">Disease Duration (days):</label>
+        <input type="number" id="disease_duration" required>
+
+        <button type="submit">Simulate Disease Progression</button>
+    </form>
+
+    <div id="simulationResult">
+        <h3>Simulation Results</h3>
+        <canvas id="chart"></canvas>
+        <div id="description" style="margin-top: 20px; font-size: 1.2em;"></div> <!-- Description Section -->
+    </div>
+</div>
+
+<script>
+// Function to analyze health data for a specific patient
+function analyzePatient(patientId) {
+    const row = document.getElementById('patient-' + patientId);
+    const patientData = {
+        id: patientId,
+        age: parseInt(row.getAttribute('data-age')),
+        bmi: parseFloat(row.getAttribute('data-bmi')),
+        bloodGroup: row.getAttribute('data-blood_group'),
+        height: parseFloat(row.getAttribute('data-height')),
+        cholesterol: parseFloat(row.getAttribute('data-cholesterol')),
+        bloodPressure: row.getAttribute('data-blood_pressure'),
+        gender: row.getAttribute('data-gender')
+    };
+
+    const healthStatus = analyzePatientData(patientData);
+    document.getElementById('health-status-' + patientId).textContent = healthStatus;
+}
+
+// Function to analyze the health data
+function analyzePatientData(data) {
+    let results = [];
+    if (data.bmi < 18.5) { results.push("Underweight - Risk of Nutritional Deficiency"); }
+    else if (data.bmi >= 18.5 && data.bmi < 24.9) { results.push("Healthy Weight - Maintain a Balanced Diet"); }
+    else if (data.bmi >= 25 && data.bmi < 29.9) { results.push("Overweight - Consider Weight Management"); }
+    else if (data.bmi >= 30) { results.push("Obese - High Risk of Heart Disease"); }
+
+    if (data.cholesterol > 240) { results.push("High Cholesterol - Risk of Heart Disease"); }
+    else { results.push("Normal Cholesterol Level"); }
+
+    const bloodPressure = data.bloodPressure.split('/');
+    if (bloodPressure.length === 2) {
+        const systolic = parseInt(bloodPressure[0]);
+        const diastolic = parseInt(bloodPressure[1]);
+        if (systolic >= 140 || diastolic >= 90) { results.push("High Blood Pressure - Hypertension Risk"); }
+        else if (systolic >= 120 && systolic < 140) { results.push("Prehypertension - Monitor Blood Pressure"); }
+        else { results.push("Normal Blood Pressure"); }
+    }
+
+    if (data.age > 60) { results.push("Elderly - Health Monitoring Recommended"); }
+    else if (data.age < 18) { results.push("Young Patient - Ensure Proper Nutritional Intake"); }
+
+    return results.join(", ");
+}
+
+// Function to delete a patient permanently
+function deletePatient(patientId) {
+    fetch('/delete_patient', {
+        method: 'POST',
+        body: new URLSearchParams({
+            'patient_id': patientId
+        }),
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            document.getElementById('patient-' + patientId).remove();
+            alert(data.message);
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Function to delete a message permanently
+function deleteMessage(messageId) {
+    fetch('/delete_message', {
+        method: 'POST',
+        body: new URLSearchParams({
+            'message_id': messageId
+        }),
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === "success") {
+            document.getElementById('message-' + messageId).remove();
+            alert(data.message);
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+</script>
+
+{% endblock %}
