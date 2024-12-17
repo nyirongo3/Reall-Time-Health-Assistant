@@ -1,9 +1,7 @@
 flask
+flask-sqlalchemy
 numpy
-scipy
-sklearn
-datetime
-os
-flask_sqlalchemy
 pandas
+scikit-learn
 gunicorn
+scipy
