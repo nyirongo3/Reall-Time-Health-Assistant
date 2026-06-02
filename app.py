@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from model import predict_health_risk
 from scipy.integrate import odeint
 
-app = Flask('__name__')
+app = Flask(__name__)
 
 # Database configuration
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -29,6 +29,7 @@ class User(db.Model):
 class HealthData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     patient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    patient = db.relationship('User', backref=db.backref('health_data', lazy=True))
     age = db.Column(db.Integer, nullable=False)
     bmi = db.Column(db.Float, nullable=False)
     blood_group = db.Column(db.String(10), nullable=False)
@@ -67,12 +68,19 @@ def signup_root():
         role = request.form['role']
 
         if not (username and email and password and role):
-            return "Please fill all the fields."
+            flash("Please fill all the fields.", "danger")
+            return redirect(url_for('signup_root'))
+
+        existing_user = User.query.filter((User.email == email) | (User.username == username)).first()
+        if existing_user:
+            flash("Username or email already exists. Please choose another.", "danger")
+            return redirect(url_for('signup_root'))
 
         user = User(username=username, email=email, password=password, role=role)
         db.session.add(user)
         db.session.commit()
 
+        flash("Signup successful. Please log in.", "success")
         return redirect(url_for('login_root'))
 
     return render_template('signup.html')
@@ -86,7 +94,8 @@ def login_root():
         user = User.query.filter_by(email=email, password=password).first()
 
         if not user:
-            return "Invalid credentials. Try again."
+            flash("Invalid credentials. Try again.", "danger")
+            return redirect(url_for('login_root'))
 
         session['user_id'] = user.id
         session['username'] = user.username
@@ -98,6 +107,9 @@ def login_root():
             return redirect(url_for('doctor_dashboard'))
         elif user.role == 'Patient':
             return redirect(url_for('patient_dashboard'))
+
+        flash("Invalid user role. Please contact support.", "danger")
+        return redirect(url_for('login_root'))
 
     return render_template('login.html')
 
